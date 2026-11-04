@@ -1,0 +1,43 @@
+# Ansible lab, entirely in Docker (Ansible does not run natively on Windows):
+#   app-server - a bare Ubuntu 24.04 "server" with systemd and SSH, and no Python or Java
+#   ansible    - the control node that runs the playbook against it over SSH
+#
+# Build the JAR first (mvn -B package), then from the repository root:
+#   docker compose -f ansible/docker-compose.yml up -d --build app-server
+#   docker compose -f ansible/docker-compose.yml run --rm ansible ansible-playbook -i inventory playbook.yml
+#   curl http://localhost:8082/api/password/health
+name: passgen-ansible
+
+services:
+  app-server:
+    build: app-server
+    container_name: passgen-app-server
+    hostname: app-server
+    # systemd as PID 1 needs these inside a container
+    privileged: true
+    cgroup: host
+    tmpfs:
+      - /run
+      - /run/lock
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - ansible_keys:/keys:ro
+    ports:
+      - "8082:8081"   # host 8082 -> app_port inside the server
+
+  ansible:
+    build: control
+    depends_on:
+      - app-server
+    working_dir: /project/ansible
+    environment:
+      # The repo is mounted from Windows, where every folder looks world-writable to Linux,
+      # and Ansible then silently ignores ./ansible.cfg. Pointing at it explicitly fixes that.
+      ANSIBLE_CONFIG: /project/ansible/ansible.cfg
+    volumes:
+      - ..:/project:ro
+      - ansible_keys:/keys
+    profiles: ["tools"]   # only started by `docker compose run ansible ...`
+
+volumes:
+  ansible_keys:

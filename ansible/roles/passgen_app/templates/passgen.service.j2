@@ -1,0 +1,17 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Password Generator API
+After=network.target
+
+[Service]
+Type=simple
+User={{ app_user }}
+WorkingDirectory={{ app_home }}
+ExecStart=/usr/bin/java {{ app_java_opts }} -jar {{ app_home }}/password-generator-api.jar --spring.config.additional-location=file:{{ app_config_dir }}/application.properties
+# The JVM exits with 143 after SIGTERM; that is a clean stop, not a failure.
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

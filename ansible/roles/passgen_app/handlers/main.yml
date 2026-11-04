@@ -1,0 +1,12 @@
+---
+# Handlers run only when a task reports "changed", once, at the end (or at flush_handlers),
+# in the order listed here: reload systemd first, then restart the service.
+
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Restart passgen
+  ansible.builtin.systemd_service:
+    name: "{{ app_service_name }}"
+    state: restarted

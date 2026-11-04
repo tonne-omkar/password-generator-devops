@@ -1,0 +1,21 @@
+---
+# Overridable settings for the passgen_app role (group_vars/app_servers.yml sets some of these).
+
+# Port the API listens on. Used by the config file, the health wait and the smoke test.
+app_port: 8081
+
+# Longest password the API will generate (passgen.max-length).
+app_max_password_length: 64
+
+# JVM memory settings for the service.
+app_java_opts: "-Xmx256m"
+
+# The JAR to deploy. Empty means "the newest target/password-generator-api-*.jar in this repo".
+app_artifact: ""
+app_artifact_dir: "{{ playbook_dir }}/../target"
+
+app_java_package: openjdk-21-jre-headless
+app_user: passgen
+app_home: /opt/passgen
+app_config_dir: /etc/passgen
+app_service_name: passgen

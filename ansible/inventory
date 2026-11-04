@@ -1,0 +1,9 @@
+# One app server: the `app-server` container from docker-compose.yml.
+# To deploy to a real VM instead, change ansible_host to its IP address.
+[app_servers]
+app-server ansible_host=app-server
+
+[app_servers:vars]
+ansible_user=ansible
+ansible_ssh_private_key_file=/keys/id_ed25519
+ansible_python_interpreter=/usr/bin/python3
