@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: passgen
+  labels:
+    app: passgen
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  # The Deployment manages pods through a ReplicaSet; these labels are how it finds them.
+  selector:
+    matchLabels:
+      app: passgen
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Never take an old pod away before its replacement is Ready, so a bad release
+      # cannot cause downtime (the rollback demo relies on this).
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: passgen        # must match spec.selector and the Service selector
+        tier: api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8081"
+    spec:
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: api
+          image: password-generator-api:local
+          imagePullPolicy: IfNotPresent   # use the image loaded with `kind load`
+          ports:
+            - name: http
+              containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: passgen-config
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          # Deployment enhancement: probes on Spring Boot Actuator.
+          # startup   - gives the JVM up to 60 s to boot before the other probes start
+          # liveness  - restart the container if the app stops responding
+          # readiness - send traffic only to pods that are ready to serve it
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 3
+            failureThreshold: 20
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp       # Tomcat needs a writable temp dir
+      volumes:
+        - name: tmp
+          emptyDir: {}

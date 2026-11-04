@@ -1,0 +1,13 @@
+# Only pom.xml and src/ are needed to build the image.
+.git
+.github
+.idea
+.vscode
+target
+ansible
+jenkins
+k8s
+kind
+scripts
+docs
+*.md

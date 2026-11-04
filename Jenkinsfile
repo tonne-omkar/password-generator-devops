@@ -1,6 +1,6 @@
 // Jenkins pipeline for the Password Generator API.
 //
-//   Checkout -> Version -> Test -> Build -> (archive artifacts)
+//   Checkout -> Version -> Test -> Build -> Docker image -> (archive artifacts)
 //
 // Trigger: SCM polling every minute. Jenkins runs on a laptop with no public address, so
 // GitHub cannot deliver a webhook to it; instead Jenkins asks GitHub for the latest commit
@@ -29,6 +29,7 @@ pipeline {
 
     environment {
         MAVEN_OPTS = '-Djava.awt.headless=true'
+        IMAGE = 'password-generator-api'
     }
 
     stages {
@@ -65,13 +66,28 @@ pipeline {
                 sh 'ls -l target/*.jar'
             }
         }
+
+        stage('Docker image') {
+            steps {
+                // Uses the laptop's Docker daemon through the mounted socket, so the image
+                // is immediately available to `kind load docker-image`.
+                sh '''
+                    docker build \
+                        --build-arg BUILD_TAG="$VERSION_TAG" \
+                        --build-arg VCS_REF="$GIT_COMMIT" \
+                        -t "$IMAGE:$VERSION_TAG" -t "$IMAGE:latest" .
+                    docker run --rm --entrypoint java "$IMAGE:$VERSION_TAG" -version
+                    docker image ls "$IMAGE"
+                '''
+            }
+        }
     }
 
     post {
         success {
             archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
             archiveArtifacts artifacts: 'target/site/jacoco/**', allowEmptyArchive: true
-            echo "Artifact: target/password-generator-api-${env.VERSION_TAG}.jar"
+            echo "Artifact: target/password-generator-api-${env.VERSION_TAG}.jar  Image: ${env.IMAGE}:${env.VERSION_TAG}"
         }
         failure {
             echo 'Build failed - read the stage that turned red in the console output above.'
