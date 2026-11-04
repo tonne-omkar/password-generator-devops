@@ -1,0 +1,15 @@
+# Deployment enhancement: settings live here instead of being hardcoded in the image or the
+# Deployment. Spring Boot maps env vars to properties: SERVER_PORT -> server.port,
+# PASSGEN_MAX_LENGTH -> passgen.max-length. Change a value, then:
+#   kubectl apply -k k8s && kubectl -n passgen rollout restart deployment/passgen
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: passgen-config
+  labels:
+    app: passgen
+data:
+  SERVER_PORT: "8081"
+  PASSGEN_MIN_LENGTH: "8"
+  PASSGEN_MAX_LENGTH: "64"
+  JAVA_OPTS: "-XX:MaxRAMPercentage=75"

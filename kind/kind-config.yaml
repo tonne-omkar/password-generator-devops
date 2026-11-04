@@ -1,0 +1,11 @@
+# One-node kind cluster. The NodePort Service (30080) is published on the laptop as
+# http://localhost:8090, so the app is reachable without port-forwarding.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: passgen
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 8090
+        protocol: TCP
