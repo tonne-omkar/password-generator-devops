@@ -1,0 +1,6 @@
+---
+- name: Apply the passgen_app role
+  hosts: app_servers
+  become: true
+  roles:
+    - passgen_app

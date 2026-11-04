@@ -23,6 +23,9 @@
     <properties>
         <java.version>21</java.version>
         <jacoco.version>0.8.13</jacoco.version>
+        <!-- Build versioning: Jenkins passes -Dbuild.tag=b<build number>-<commit SHA>.
+             It names the JAR and is what /api/password/health reports as the version. -->
+        <build.tag>${project.version}</build.tag>
         <!-- Minimum line coverage. `mvn verify` fails below this. -->
         <coverage.minimum>0.80</coverage.minimum>
     </properties>
@@ -66,6 +69,7 @@
     </dependencies>
 
     <build>
+        <finalName>${project.artifactId}-${build.tag}</finalName>
         <plugins>
 
             <!-- Fat JAR; build-info feeds the version into /actuator/info -->
@@ -96,7 +100,8 @@
                 </configuration>
             </plugin>
 
-            <!-- Coverage report (target/site/jacoco) and an 80% line-coverage gate -->
+            <!-- Coverage report (target/site/jacoco) and an 80% line-coverage gate.
+                 Bound to the test phase so `mvn test` (the Jenkins Test stage) already enforces it. -->
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
@@ -110,14 +115,14 @@
                     </execution>
                     <execution>
                         <id>report</id>
-                        <phase>verify</phase>
+                        <phase>test</phase>
                         <goals>
                             <goal>report</goal>
                         </goals>
                     </execution>
                     <execution>
                         <id>check</id>
-                        <phase>verify</phase>
+                        <phase>test</phase>
                         <goals>
                             <goal>check</goal>
                         </goals>

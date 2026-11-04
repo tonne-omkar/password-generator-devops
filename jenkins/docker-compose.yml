@@ -1,0 +1,26 @@
+# Start Jenkins:   docker compose -f jenkins/docker-compose.yml up -d --build
+# Open:            http://localhost:8080   (admin / admin123 unless JENKINS_ADMIN_PASSWORD is set)
+# Stop:            docker compose -f jenkins/docker-compose.yml down     (add -v to wipe Jenkins data)
+name: passgen-jenkins
+
+services:
+  jenkins:
+    build: .
+    container_name: passgen-jenkins
+    # Lab setting: root lets the pipeline use the host's Docker socket for the image stage.
+    # On a shared server you would add the jenkins user to the socket's group instead.
+    user: root
+    ports:
+      - "8080:8080"
+    environment:
+      JENKINS_ADMIN_ID: admin
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:-admin123}
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - maven_repo:/root/.m2
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+
+volumes:
+  jenkins_home:
+  maven_repo:

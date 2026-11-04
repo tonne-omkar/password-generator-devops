@@ -1,0 +1,98 @@
+---
+# Install Java, deploy the JAR and run it as a systemd service.
+# Tasks that change the JAR, the config or the unit notify handlers, so the service is
+# restarted only when something actually changed - a second run restarts nothing.
+
+- name: Find the newest build artifact
+  ansible.builtin.find:
+    paths: "{{ app_artifact_dir }}"
+    patterns: "password-generator-api-*.jar"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: found_jars
+  when: app_artifact | length == 0
+
+- name: Choose the artifact to deploy
+  ansible.builtin.set_fact:
+    app_artifact_path: >-
+      {{ app_artifact if app_artifact | length > 0
+         else (found_jars.files | sort(attribute='mtime') | last).path }}
+  when: app_artifact | length > 0 or found_jars.matched > 0
+
+- name: Check that an artifact exists
+  ansible.builtin.assert:
+    that: app_artifact_path is defined
+    fail_msg: "No JAR in {{ app_artifact_dir }}. Run `mvn -B package` first, or set app_artifact."
+    quiet: true
+
+- name: Install the Java runtime
+  ansible.builtin.apt:
+    name: "{{ app_java_package }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create the service account
+  ansible.builtin.user:
+    name: "{{ app_user }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Create the application directories
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: "{{ item.group }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ app_home }}", group: root, mode: "0755" }
+    - { path: "{{ app_config_dir }}", group: "{{ app_user }}", mode: "0750" }
+
+- name: Copy the build artifact ({{ app_artifact_path | basename }})
+  ansible.builtin.copy:
+    src: "{{ app_artifact_path }}"
+    dest: "{{ app_home }}/password-generator-api.jar"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart passgen
+
+- name: Write the application config
+  ansible.builtin.template:
+    src: application.properties.j2
+    dest: "{{ app_config_dir }}/application.properties"
+    owner: root
+    group: "{{ app_user }}"
+    mode: "0640"
+  notify: Restart passgen
+
+- name: Install the systemd unit
+  ansible.builtin.template:
+    src: passgen.service.j2
+    dest: "/etc/systemd/system/{{ app_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart passgen
+
+- name: Enable and start the service
+  ansible.builtin.systemd_service:
+    name: "{{ app_service_name }}"
+    enabled: true
+    state: started
+
+- name: Apply pending restarts before checking health
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for the API to report healthy
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ app_port }}/actuator/health"
+  register: health
+  until: health.status == 200
+  retries: 30
+  delay: 2

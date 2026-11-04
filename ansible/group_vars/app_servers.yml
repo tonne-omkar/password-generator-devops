@@ -1,0 +1,6 @@
+---
+# Settings for every host in [app_servers]; these override the role defaults.
+# app_port must match the container side of the port mapping in docker-compose.yml (8082:8081).
+app_port: 8081
+app_max_password_length: 64
+app_java_opts: "-Xms64m -Xmx256m"
