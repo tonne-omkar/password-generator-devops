@@ -109,3 +109,5 @@ kind/                kind cluster config
 scripts/             kind-up, scale and rollback demos
 repo_link.txt        repository link for submission
 ```
+
+Jenkins polls GitHub every minute and builds each merge to main automatically.
