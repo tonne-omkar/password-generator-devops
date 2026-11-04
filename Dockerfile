@@ -9,15 +9,21 @@
 FROM maven:3.9-eclipse-temurin-21 AS build
 WORKDIR /src
 
-# Dependencies first, in their own layer: they are re-downloaded only when pom.xml changes,
-# not on every source edit.
+# Maven downloads are cached between builds (BuildKit cache mount), and each download is
+# retried: on a slow or unstable connection a file can be cut off halfway, which used to fail
+# the whole build. A retry now resumes with everything already downloaded.
 COPY pom.xml .
-RUN mvn -B dependency:go-offline
-
 COPY src ./src
 # Jenkins passes b<build number>-<commit SHA>; it becomes the JAR name and the app version.
 ARG BUILD_TAG=docker
-RUN mvn -B package -DskipTests -Dbuild.tag="${BUILD_TAG}" \
+RUN --mount=type=cache,target=/root/.m2 \
+    for attempt in 1 2 3 4 5; do \
+      mvn -B -Dmaven.wagon.http.retryHandler.count=5 \
+          package -DskipTests -Dbuild.tag="${BUILD_TAG}" && break; \
+      echo "Maven attempt $attempt failed (network?), retrying..."; \
+      [ "$attempt" = 5 ] && exit 1; \
+      sleep 5; \
+    done \
  && cp "target/password-generator-api-${BUILD_TAG}.jar" /app.jar
 
 # -------------------------------------------------------------- Stage 2: runtime
