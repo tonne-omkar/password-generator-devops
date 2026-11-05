@@ -5,3 +5,12 @@ target/
 .classpath
 .project
 .settings/
+
+# PBL report (built locally / on Overleaf, not part of the app)
+report/
+report_overleaf.zip
+report_overleaf*.pdf
+/main.tex
+/ramaiah_logo.jpg
+screenshot1/
+docs/screenshots/
